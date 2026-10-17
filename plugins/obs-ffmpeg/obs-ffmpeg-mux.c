@@ -295,6 +295,25 @@ static void build_command_line(struct ffmpeg_muxer *stream, os_process_args_t **
 	}
 
 	char *exe = os_get_executable_path_ptr(FFMPEG_MUX);
+#ifdef __APPLE__
+	/* Embedded consumers such as noobs keep the helper beside their plugins,
+	 * not beside the Node/Electron executable. Resolve relative to this module. */
+	if (!os_file_exists(exe)) {
+		const char *module_path = obs_get_module_binary_path(obs_current_module());
+		struct dstr helper = {0};
+		dstr_copy(&helper, module_path);
+		char *last_slash = strrchr(helper.array, '/');
+		if (last_slash) {
+			dstr_resize(&helper, (size_t)(last_slash - helper.array));
+			dstr_cat(&helper, "/../../../../Frameworks/" FFMPEG_MUX);
+			if (os_file_exists(helper.array)) {
+				bfree(exe);
+				exe = bstrdup(helper.array);
+			}
+		}
+		dstr_free(&helper);
+	}
+#endif
 
 	if (os_file_exists(exe)) {
 		*args = os_process_args_create(exe);
